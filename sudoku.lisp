@@ -18,97 +18,17 @@
                    (space 0)
                    (compilation-speed 0)))
 
-;; Anaphoric macros
-(defmacro aif (test then &optional else)
-  "Binds the resulting value of test to 'it and executes if statement as usual"
-  `(let ((it ,test))
-     (if it ,then ,@(when else `(,else)))))
+;;; Parameters
 
+(defparameter *n-values* 9
+  "Number of values for sudoku cells.")
+
+;;; Utility Macros
 (defmacro awhen (test &body body)
   "Binds the resulting value of test to 'it and executes when statement"
   `(let ((it ,test))
      (when it
        ,@body)))
-
-(defmacro aunless (test &body body)
-  "Binds the resulting value of test to 'it and executes unless statement"
-  `(let ((it ,test))
-     (unless it
-       ,@body)))
-
-(defparameter *n-values* 9
-  "Number of values for sudoku cells.")
-
-;; Integer bitvector API
-(defun intvec-insert (intvec value)
-  "Returns new intvec with value inserted"
-  (logior intvec
-          (ash 1 (1- value))))
-
-(defun intvec-remove (intvec value)
-  "Returns new intvec with value removed"
-  (logxor intvec
-          (logand intvec
-                  (ash 1 (1- value)))))
-
-(defun intvec-member (intvec value)
-  "Returns boolean denoting whether or not value is in intvec"
-  (logbitp (1- value) intvec))
-
-(defun intvec-length (intvec)
-  (logcount intvec))
-
-(defun intvec-singleton-value (intvec)
-  "Returns the only value in the intvec if there's only one, otherwise
-returns NIL."
-  (when (= 1 (logcount intvec))
-    (integer-length intvec)))
-
-(defun intvec-empty-p (intvec)
-  "Returns T if intvec has no items, NIL otherwise"
-  (zerop (logcount intvec)))
-
-(defmacro do-intvec ((var intvec &optional result) &body body)
-  "Iterate over all values in the intvec"
-  (let* ((v (gensym "intvec"))
-         (index (gensym "index"))
-         (val (gensym "val")))
-    `(let* ((,v ,intvec)
-            (,var NIL))
-       (do ((,index 0 (1+ ,index)))
-           ((zerop ,v) ,result)
-         (symbol-macrolet ((,val (mod ,v 2)))
-           (when (plusp ,val)
-             (setf ,var (1+ ,index))
-             ,@body))
-         (setf ,v (floor ,v 2))))))
-
-(defun intvec->list (intvec)
-  (let* ((result nil))
-    (do-intvec (i intvec result)
-      (push i result))))
-
-(defun list->intvec (list)
-  (reduce #'intvec-insert
-          list
-          :initial-value 0))
-
-(defun make-full-intvec ()
-  "Returns completely filled intvec for current *n-values*"
-  (1- (ash 1 *n-values*)))
-
-;; utilities
-(defun copy-sudoku-array (array)
-  (let* ((dims (array-dimensions array))
-         (type (array-element-type array))
-         (result (make-array dims
-                             :element-type type
-                             :initial-element 0)))
-    (dotimes (i *n-values*)
-      (dotimes (j *n-values*)
-        (setf (aref result i j)
-              (aref array i j))))
-    result))
 
 ;; neighbor walking
 (defmacro do-neighbors ((nrow ncol row col &optional result) &body body)
@@ -180,6 +100,78 @@ returning optional result"
                ,@body))))
        ,result)))
 
+;; intvec walking
+(defmacro do-intvec ((var intvec &optional result) &body body)
+  "Iterate over all values in the intvec"
+  (let* ((v (gensym "intvec"))
+         (index (gensym "index"))
+         (val (gensym "val")))
+    `(let* ((,v ,intvec)
+            (,var NIL))
+       (do ((,index 0 (1+ ,index)))
+           ((zerop ,v) ,result)
+         (symbol-macrolet ((,val (mod ,v 2)))
+           (when (plusp ,val)
+             (setf ,var (1+ ,index))
+             ,@body))
+         (setf ,v (floor ,v 2))))))
+
+;;; Integer bitvector API
+(defun intvec-insert (intvec value)
+  "Returns new intvec with value inserted"
+  (logior intvec
+          (ash 1 (1- value))))
+
+(defun intvec-remove (intvec value)
+  "Returns new intvec with value removed"
+  (logxor intvec
+          (logand intvec
+                  (ash 1 (1- value)))))
+
+(defun intvec-member (intvec value)
+  "Returns boolean denoting whether or not value is in intvec"
+  (logbitp (1- value) intvec))
+
+(defun intvec-length (intvec)
+  (logcount intvec))
+
+(defun intvec-singleton-value (intvec)
+  "Returns the only value in the intvec if there's only one, otherwise
+returns NIL."
+  (when (= 1 (logcount intvec))
+    (integer-length intvec)))
+
+(defun intvec-empty-p (intvec)
+  "Returns T if intvec has no items, NIL otherwise"
+  (zerop (logcount intvec)))
+
+(defun intvec->list (intvec)
+  (let* ((result nil))
+    (do-intvec (i intvec result)
+      (push i result))))
+
+(defun list->intvec (list)
+  (reduce #'intvec-insert
+          list
+          :initial-value 0))
+
+(defun make-full-intvec ()
+  "Returns completely filled intvec for current *n-values*"
+  (1- (ash 1 *n-values*)))
+
+;;; Utility functions
+(defun copy-sudoku-array (array &optional (initial-element 0))
+  (let* ((dims (array-dimensions array))
+         (type (array-element-type array))
+         (result (make-array dims
+                             :element-type type
+                             :initial-element initial-element)))
+    (dotimes (i *n-values*)
+      (dotimes (j *n-values*)
+        (setf (aref result i j)
+              (aref array i j))))
+    result))
+
 ;; sudoku puzzle type
 (defclass sudoku ()
   ((values
@@ -223,7 +215,7 @@ returning optional result"
   (with-slots (values possible) s
     (make-instance 'sudoku
                    :values (copy-sudoku-array values)
-                   :possible (copy-sudoku-array possible))))
+                   :possible (copy-sudoku-array possible (make-full-intvec)))))
 
 ;; Sudoku puzzle I/O
 (defun read-sudoku (&optional
