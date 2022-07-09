@@ -6,7 +6,9 @@
    :solve-from-string
    :check
    :read-sudoku
-   :write-sudoku))
+   :read-sudoku-from-string
+   :write-sudoku
+   :write-sudoku-to-string))
 
 (in-package :sudoku)
            
@@ -255,6 +257,10 @@ reasonable *n-values*)."
                                   :radix radix)))
           (setf (aref values i j) val))))))
 
+(defun read-sudoku-from-string (string)
+  (with-input-from-string (s string)
+    (read-sudoku s)))
+
 (defun write-sudoku (sudoku &optional (stream *standard-output*))
   "Prints puzzle to stream in human readable way."
   (let* ((*print-base* (1+ *n-values*))
@@ -284,6 +290,10 @@ reasonable *n-values*)."
               (princ (if (plusp v) v ".") stream)
               (princ " " stream))))
         (terpri stream)))))
+
+(defun write-sudoku-to-string (sudoku)
+  (with-output-to-string (s)
+    (write-sudoku sudoku s)))
 
 ;; solver
 (defun sudoku-solved-p (puzzle)
