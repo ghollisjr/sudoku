@@ -4,6 +4,7 @@ cores/sudoku.core: sudoku.lisp
 clean:
 	rm -f cores/sudoku.core
 install:
+	mkdir -p /usr/local/lib/sbcl-cores/
 	cp -v cores/sudoku.core /usr/local/lib/sbcl-cores/
 uninstall:
 	rm -f /usr/local/lib/sbcl-cores/sudoku.core
