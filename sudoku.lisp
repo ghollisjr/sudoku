@@ -11,7 +11,7 @@
    :write-sudoku-to-string))
 
 (in-package :sudoku)
-           
+
 (declaim (optimize (debug 3)
                    (speed 0)
                    (safety 3)
@@ -22,6 +22,10 @@
 
 (defparameter *n-values* 9
   "Number of values for sudoku cells.")
+
+(defparameter *check-p* T
+  "Check initial puzzle for contradictions.  Only disable for
+debugging.")
 
 ;;; Utility Macros
 (defmacro awhen (test &body body)
@@ -188,34 +192,54 @@ returns NIL."
 ;; Initial constraint propagation
 ;;
 ;; Only run this if possible isn't supplied
-(defmethod initialize-instance :after ((s sudoku) &key &allow-other-keys)
-  (with-slots (values possible) s
-    (unless possible
-      (setf possible
-            (make-array (list *n-values* *n-values*)
-                        :initial-element (make-full-intvec)
-                        :element-type (list 'integer (make-full-intvec))))
-      (dotimes (i *n-values*)
-        (dotimes (j *n-values*)
-          (let ((value (aref values i j)))
-            (when (plusp value)
-              (unless (intvec-member (aref possible i j)
-                                     value)
-                (error "Contradiction"))
-              (setf (aref possible i j)
-                    (intvec-insert 0 value))
-              (do-neighbors (nr nc i j)
-                (setf (aref possible nr nc)
-                      (intvec-remove (aref possible nr nc)
-                                     value))
-                (when (zerop (aref possible nr nc))
-                  (error "Contradiction"))))))))))
+(when *check-p*
+  (defmethod initialize-instance :after ((s sudoku) &key &allow-other-keys)
+    (with-slots (values possible) s
+      (unless possible
+        (setf possible
+              (make-array (list *n-values* *n-values*)
+                          :initial-element (make-full-intvec)
+                          :element-type (list 'integer (make-full-intvec))))
+        (dotimes (i *n-values*)
+          (dotimes (j *n-values*)
+            (let ((value (aref values i j)))
+              (when (plusp value)
+                (unless (intvec-member (aref possible i j)
+                                       value)
+                  (error "Contradiction"))
+                (setf (aref possible i j)
+                      (intvec-insert 0 value))
+                (do-neighbors (nr nc i j)
+                  (setf (aref possible nr nc)
+                        (intvec-remove (aref possible nr nc)
+                                       value))
+                  (when (zerop (aref possible nr nc))
+                    (error "Contradiction")))))))))))
 
 (defun copy-sudoku (s)
   (with-slots (values possible) s
     (make-instance 'sudoku
                    :values (copy-sudoku-array values)
                    :possible (copy-sudoku-array possible (make-full-intvec)))))
+
+;; debugging function
+(defun copy-sudoku-unit (s i j)
+  "Only copies data from specific unit containing (i j)"
+  (let* ((result
+           (make-instance 'sudoku
+                          :values
+                          (make-array (list *n-values* *n-values*)
+                                      :initial-element 0)
+                          :possible
+                          (make-array (list *n-values* *n-values*)
+                                      :initial-element (make-full-intvec)))))
+    (with-slots (values) result
+      (setf (aref values i j)
+            (aref (slot-value s 'values) i j))
+      (do-neighbors (ni nj i j)
+        (setf (aref values ni nj)
+              (aref (slot-value s 'values) ni nj))))
+    result))
 
 ;; Sudoku puzzle I/O
 (defun read-sudoku (&optional
@@ -240,6 +264,8 @@ reasonable *n-values*)."
     (let ((c (read-char stream eof-error-p eof-value recursive-p))
           (i (floor index *n-values*))
           (j (mod index *n-values*)))
+      (when (not c)
+        (return-from read-sudoku NIL))
       (when (or (digit-char-p c radix)
                 (char= c #\.))
         (incf index)
@@ -405,3 +431,91 @@ reasonable *n-values*)."
   0 0 0 | 0 0 5 | 0 0 3"
   "This was the problem that stumped the other guy's solver.  Looks like
 mine solves it.")
+
+;;;; Test suite
+(defmacro timed-test (acc &body body)
+  "Pushes run time value into acc"
+  (let* ((start (gensym "start"))
+         (result (gensym "result")))
+    `(let ((,start (get-internal-real-time))
+           (,result (progn ,@body)))
+       (push (* 1e-6 (- (get-internal-real-time) ,start)) ,acc)
+       ,result)))
+
+(defun run-tests (name path)
+  (let* ((path (asdf:system-relative-pathname
+                :sudoku
+                path))
+         (n 0)
+         (success 0)
+         (times NIL))
+    (with-open-file (f path :direction :input)
+      (do ((puzzle T))
+          ((null puzzle) nil)
+        (setf puzzle
+              (read-sudoku f nil nil))
+        (when puzzle
+          (incf n)
+          (setf puzzle
+                (timed-test times
+                  (solve puzzle)))
+          (when (check puzzle)
+            (incf success)))))
+    (format t "~a: Pass ~a/~a~%"
+            name
+            success n)
+    (let ((min (first times))
+          (max (first times))
+          (mean 0.0))
+      (dolist (time times)
+        (when (< time min)
+          (setf min time))
+        (when (> time max)
+          (setf max time))
+        (incf mean time))
+      (setf mean (/ mean n))
+      (format t "Average time: ~a~%Max time: ~a~%Min time: ~a~%"
+              mean max min))))
+
+(defun easy-tests ()
+  (run-tests "Easy tests" "data/easy50.txt"))
+
+(defun hard-tests ()
+  (run-tests "Hard tests" "data/hardest.txt"))
+
+(defun top95-tests ()
+  (run-tests "Top 95 tests" "data/top95.txt"))
+
+;;;; 25x25 tests
+(defparameter *25x25-raw-data*
+  (list 0 2 0 0 0 3 14 0 8 0 0 0 0 0 0 0 0 13 4 24 0 7 1 0 0
+        0 10 17 0 0 0 6 18 0 0 22 16 0 12 0 0 0 0 1 0 0 0 13 19 0
+        0 15 24 13 7 0 0 0 4 0 10 0 0 3 14 0 18 0 0 0 0 22 2 6 0
+        0 0 1 21 0 0 15 0 22 0 0 19 13 0 0 0 8 0 0 0 0 16 18 20 0
+        0 5 0 0 20 7 25 19 0 0 0 21 17 18 2 10 12 22 9 15 11 0 0 0 0
+        11 0 0 0 22 8 0 24 7 1 5 0 0 0 13 16 17 25 23 2 4 0 6 0 19
+        16 9 12 0 17 0 19 22 0 0 0 0 18 21 0 0 20 6 13 0 7 0 0 23 11
+        0 0 6 0 21 9 16 0 3 0 0 22 20 19 0 0 0 0 15 8 25 0 0 0 0
+        0 0 23 5 0 2 0 0 11 17 8 0 0 0 16 12 9 0 0 21 0 3 10 0 0
+        0 0 0 0 0 6 0 0 12 0 9 1 25 0 3 0 11 0 0 7 0 0 21 0 0
+        0 0 9 0 0 23 0 5 17 4 16 0 11 0 22 18 2 0 21 13 0 0 7 0 0
+        4 6 0 0 5 0 0 2 0 0 0 18 21 24 0 0 19 3 0 12 23 0 0 17 0
+        0 0 0 12 11 0 7 3 0 24 17 20 15 13 19 1 0 5 8 0 6 9 0 0 0
+        0 22 0 0 14 19 0 6 16 0 0 8 9 7 0 0 0 24 0 0 3 0 0 1 18
+        0 0 21 0 0 25 13 0 20 8 12 0 14 0 10 9 16 15 0 6 0 0 4 0 0
+        0 0 25 0 0 24 0 0 18 0 4 0 3 10 5 0 1 0 0 14 0 0 0 0 0
+        0 0 5 3 0 17 0 0 23 7 13 0 0 0 18 19 21 0 0 22 0 11 12 0 0
+        0 0 0 0 18 10 8 0 0 0 0 25 23 2 0 0 5 0 16 11 9 0 3 0 0
+        17 20 0 0 2 0 22 16 6 0 0 7 12 0 0 0 0 9 3 0 18 0 23 24 25
+        6 0 4 0 16 1 11 12 25 3 19 0 0 0 21 17 23 8 0 18 2 0 0 0 14
+        0 0 0 0 4 14 24 11 19 23 21 17 16 8 0 0 0 1 2 9 13 0 0 5 0
+        0 1 14 23 0 0 0 0 9 0 0 0 19 5 0 0 24 0 12 0 0 8 17 0 0
+        0 16 11 8 0 0 0 0 1 0 6 4 0 0 23 0 15 0 0 0 14 12 9 10 0
+        0 21 3 0 0 0 17 0 0 0 0 15 0 25 20 0 0 4 10 0 0 0 16 11 0
+        0 0 20 2 0 16 5 8 0 0 0 0 0 0 0  0 6 0 19 25 0 0 0 3 0))
+
+(defparameter *25x25-puzzle*
+  (let* ((*print-base* 26))
+    (with-output-to-string (s)
+      (dolist (x *25x25-raw-data*)
+        (format s "~a" x)))))
