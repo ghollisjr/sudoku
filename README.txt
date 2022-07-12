@@ -1,3 +1,29 @@
+NOTE: This is a testing branch for evaluating the performance of
+cl-generator.  do-neighbors has been modified to use the #'neighbors*
+generator function.
+
+On my system the results of a sample puzzle were:
+
+Macros:
+Evaluation took:
+  0.026 seconds of real time
+  0.026575 seconds of total run time (0.026575 user, 0.000000 system)
+  103.85% CPU
+  92,082,230 processor cycles
+  1,365,696 bytes consed
+
+Generators:
+Evaluation took:
+  0.073 seconds of real time
+  0.072494 seconds of total run time (0.065886 user, 0.006608 system)
+  [ Run times consist of 0.012 seconds GC time, and 0.061 seconds non-GC time. ]
+  98.63% CPU
+  240,677,968 processor cycles
+  80,337,984 bytes consed
+
+So there are significant performance losses due to using the generator
+approach.
+
 I found another project that attempted to port Peter Norvig's Sudoku
 solver to Common Lisp (https://github.com/dimitri/sudoku), and while
 the skeleton of the code was good, the solver had a bug wherein this
@@ -52,4 +78,4 @@ this case printing
 ------+-------+------
 3 7 5 | 4 8 6 | 2 1 9 
 2 4 9 | 3 1 7 | 6 5 8 
-1 8 6 | 2 9 5 | 4 7 3 
+1 8 6 | 2 9 5 | 4 7 3
