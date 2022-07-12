@@ -2,6 +2,7 @@
   (:use :cl)
   (:use :cl-generator)
   (:use :cl-generator-util)
+  (:use :cl-ana.array-utils)
   (:export
    :sudoku
    :solve
