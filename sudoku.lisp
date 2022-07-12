@@ -1,5 +1,6 @@
 (defpackage #:sudoku
   (:use :cl)
+  (:use :cl-ana.array-utils)
   (:export
    :sudoku
    :solve
