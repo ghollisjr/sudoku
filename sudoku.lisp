@@ -1,5 +1,7 @@
 (defpackage #:sudoku
   (:use :cl)
+  (:use :cl-generator)
+  (:use :cl-generator-util)
   (:export
    :sudoku
    :solve
@@ -35,37 +37,39 @@ debugging.")
        ,@body)))
 
 ;; neighbor walking
+(defun* neighbors* (row col)
+  (let ((rn (floor (sqrt *n-values*)))
+        (r row)
+        (c col))
+    ;; column
+    (let ((ncol c))
+      (dotimes (nrow *n-values*)
+        (unless (= nrow r)
+          (yield (list nrow ncol)))))
+    ;; row
+    (let ((nrow r))
+      (dotimes (ncol *n-values*)
+        (unless (= ncol c)
+          (yield (list nrow ncol)))))
+    ;; block
+    (let* ((br (* rn (floor r rn)))
+           (bc (* rn (floor c rn))))
+      (dotimes (nrow rn)
+        (dotimes (ncol rn)
+          (let ((ncol (+ bc ncol))
+                (nrow (+ br nrow)))
+            (unless (or (= ncol c)
+                        (= nrow r))
+              (yield (list nrow ncol)))))))))
+
 (defmacro do-neighbors ((nrow ncol row col &optional result) &body body)
   "Iterates over all neighbor index values for the input values i & j,
 excluding i & j"
-  (let* ((bc (gensym "blockcol"))
-         (br (gensym "blockrow"))
-         (r (gensym "row"))
-         (c (gensym "col"))
-         (rn (gensym "nr")))
-    `(let ((,rn (floor (sqrt *n-values*)))
-           (,r ,row)
-           (,c ,col))
-       ;; column
-       (let ((,ncol ,c))
-         (dotimes (,nrow *n-values*)
-           (unless (= ,nrow ,r)
-             ,@body)))
-       ;; row
-       (let ((,nrow ,r))
-         (dotimes (,ncol *n-values*)
-           (unless (= ,ncol ,c)
-             ,@body)))
-       ;; block
-       (let* ((,br (* ,rn (floor ,r ,rn)))
-              (,bc (* ,rn (floor ,c ,rn))))
-         (dotimes (,nrow ,rn)
-           (dotimes (,ncol ,rn)
-             (let ((,ncol (+ ,bc ,ncol))
-                   (,nrow (+ ,br ,nrow)))
-               (unless (or (= ,ncol ,c)
-                           (= ,nrow ,r))
-                 ,@body)))))
+  (let* ((tmp (gensym "tmp")))
+    `(progn
+       (for (,tmp (neighbors* ,row ,col))
+         (destructuring-bind (,nrow ,ncol) ,tmp
+           ,@body))
        ,result)))
 
 ;; unit walking
@@ -458,7 +462,7 @@ mine solves it.")
           (incf n)
           (setf puzzle
                 (timed-test times
-                  (solve puzzle)))
+                            (solve puzzle)))
           (when (check puzzle)
             (incf success)))))
     (format t "~a: Pass ~a/~a~%"
