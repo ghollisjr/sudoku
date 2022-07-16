@@ -13,11 +13,11 @@
 
 (in-package :sudoku)
 
-(declaim (optimize (debug 3)
-                   (speed 0)
-                   (safety 3)
-                   (space 0)
-                   (compilation-speed 0)))
+(declaim (optimize (debug 1)
+                   (speed 3)
+                   (safety 1)
+                   (space 3)
+                   (compilation-speed 1)))
 
 ;;; Parameters
 
@@ -122,6 +122,11 @@ returning optional result"
          (setf ,v (floor ,v 2))))))
 
 ;;; Integer bitvector API
+(declaim (inline INTVEC-INSERT INTVEC-REMOVE
+                 INTVEC-MEMBER INTVEC-LENGTH
+                 INTVEC-SINGLETON-VALUE INTVEC-EMPTY-P
+                 INTVEC->LIST LIST->INTVEC MAKE-FULL-INTVEC))
+
 (defun intvec-insert (intvec value)
   "Returns new intvec with value inserted"
   (logior intvec
@@ -200,7 +205,7 @@ returns NIL."
         (setf possible
               (make-array (list *n-values* *n-values*)
                           :initial-element (make-full-intvec)
-                          :element-type (list 'integer (make-full-intvec))))
+                          :element-type (list 'integer 0 (make-full-intvec))))
         (dotimes (i *n-values*)
           (dotimes (j *n-values*)
             (let ((value (aref values i j)))
@@ -478,6 +483,42 @@ mine solves it.")
       (format t "Average time: ~a~%Max time: ~a~%Min time: ~a~%"
               mean max min))))
 
+(defun run-tests-debug (name path)
+  (let* ((path (asdf:system-relative-pathname
+                :sudoku
+                path))
+         (n 0)
+         (success 0)
+         (times NIL))
+    (with-open-file (f path :direction :input)
+      (do ((puzzle T))
+          ((null puzzle) nil)
+        (setf puzzle
+              (read-sudoku f nil nil))
+        (when puzzle
+          (incf n)
+          (setf puzzle
+                (timed-test times
+                  (solve puzzle)))
+          (when (check puzzle)
+            (incf success)))))
+    (format t "~a: Pass ~a/~a~%"
+            name
+            success n)
+    (let ((min (first times))
+          (max (first times))
+          (mean 0.0))
+      (dolist (time times)
+        (when (< time min)
+          (setf min time))
+        (when (> time max)
+          (setf max time))
+        (incf mean time))
+      (setf mean (/ mean n))
+      (format t "Average time: ~a~%Max time: ~a~%Min time: ~a~%"
+              mean max min)
+      times)))
+
 (defun easy-tests ()
   (run-tests "Easy tests" "data/easy50.txt"))
 
@@ -520,3 +561,12 @@ mine solves it.")
     (with-output-to-string (s)
       (dolist (x *25x25-raw-data*)
         (format s "~a" x)))))
+
+;; utilities
+(defun indexify (list)
+  "Return alist mapping index to data (useful for sorting without losing
+original index)"
+  (mapcar (let ((i 0))
+            (lambda (x)
+              (cons (prog1 i (incf i)) x)))
+          list))
