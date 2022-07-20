@@ -1,0 +1,23 @@
++ There's no reason Sudoku puzzles have to be made of square blocks.
+  They can be made of rectangular blocks arranged in the right way,
+  e.g. consider a "6x6" puzzle:
+
+  4 . . | . . .
+  . . 5 | . 6 2
+  - - - + - - -
+  . . 6 | . 3 .
+  . 4 . | 6 . .
+  - - - + - - -
+  6 2 . | 1 . .
+  . . . | . . 6
+
+  The basic idea would be to factorize a non-prime number into two
+  factors, then express the puzzle as an NxM array of blocks with each
+  block arranged as MxN (transposed) so that the overall structure is
+  square.
+
+  The resulting puzzle is less symmetrical than one made with square
+  blocks, but this still provides more variety of puzzles than just
+  the 4x4, 9x9, 16x16 triplet that are solvable with the current code.
+  (25x25 is to large for the constraint propagation algorithm it
+  seems.)
