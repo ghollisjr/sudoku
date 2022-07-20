@@ -3,9 +3,14 @@
   (ql:quickload '(:cgi :scripting :sudoku)))
 (in-package :cgi)
 (use-package :sudoku)
+(import 'sudoku::*n-values*)
 
-(defparameter *style*
-  "
+(defun style ()
+  "Returns style for sudoku with variation due to *n-values*"
+  (let* ((rt (floor (sqrt *n-values*))))
+    (concatenate
+     'string
+     "
 table.sudoku {
     margin:1em auto;
     border:1px solid;
@@ -24,20 +29,31 @@ table.sudoku {
     height:30px;
     width:30px;
 }
-.sudoku td:nth-child(3n-2) {
+.sudoku td:nth-child("
+     (princ-to-string rt)
+     "n-"
+     (princ-to-string (1- rt))
+     ") {
     border-left:solid;
 }
-.sudoku td:nth-child(3n) {
+.sudoku td:nth-child("
+     (princ-to-string rt)
+     "n) {
     border-right:solid;
 }
-.sudoku tr:nth-child(3n-2) td {
+.sudoku tr:nth-child("
+     (princ-to-string rt)
+     "n-"
+     (princ-to-string (1- rt))
+     ") td {
     border-top:solid;
 }
-.sudoku tr:nth-child(3n) td {
+.sudoku tr:nth-child("
+     (princ-to-string rt)
+     "n) td {
     border-bottom:solid;
 }
-"
-  "Style settings for sudoku web page")
+")))
 
 (defun puzzle->html (puzzle
                      &key
@@ -53,11 +69,11 @@ table.sudoku {
       (if form-p
           `(table (:class "sudoku")
                   ,@(loop
-                      for r below 9
+                      for r below *n-values*
                       collecting
                       `(tr ()
                            ,@(loop
-                               for c below 9
+                               for c below *n-values*
                                collecting
                                `(td ()
                                     (input (:type #"text"
@@ -68,11 +84,11 @@ table.sudoku {
                                                  (aref grid r c)))))))))
           `(table (:class "sudoku")
                   ,@(loop
-                      for r below 9
+                      for r below *n-values*
                       collecting
                       `(tr ()
                            ,@(loop
-                               for c below 9
+                               for c below *n-values*
                                collecting
                                `(td ()
                                     ,(if (zerop (aref grid r c))
@@ -85,28 +101,30 @@ table.sudoku {
     (read-sudoku-from-string "85...24..72......9..4.........1.7..23.5...9...4...........8..7..17..........36.4.")
     :form-p t)))
 
-(defparameter *head*
+(defun head ()
+  "Common header"
   `(head ()
          (title () "Common Lisp Sudoku Solver")
-         (style () ,*style*))
-  "Common header")
+         (style () ,(style))))
 
 (defun input-page ()
   (http-response-header)
   (let* ((puzzle
            (read-sudoku-from-string
-            (make-string 81 :initial-element #\.)))
+            (make-string (* *n-values* *n-values*) :initial-element #\.)))
          (table (puzzle->html puzzle :form-p t)))
     (format t
             "~a~%"
             (make-html
              `(html ()
-                    ,*head*
+                    ,(head)
                     (body ()
                           (h1 (:style #"text-align: center")
                               "Common Lisp Sudoku Solver")
-                          (form (:action #"sudoku.cgi"
-                                 :method #"POST")
+                          (form (:method #"POST")
+                                (input (:type #"hidden" :name #"n"
+                                        :value ,(quote-string
+                                                 (princ-to-string *n-values*))))
                                 (table (:style #"margin-left:auto;margin-right:auto")
                                        (tr ()
                                            (td ()
@@ -121,12 +139,13 @@ table.sudoku {
 
 (defun results-page (queries)
   (http-response-header)
-  (let* ((string (make-string 81 :initial-element #\.))
+  (let* ((*print-base* (1+ *n-values*))
+         (string (make-string (* *n-values* *n-values*) :initial-element #\.))
          puzzle)
     (handler-case
-        (dotimes (r 9)
-          (dotimes (c 9)
-            (let* ((index (+ (* r 9) c))
+        (dotimes (r *n-values*)
+          (dotimes (c *n-values*)
+            (let* ((index (+ (* r *n-values*) c))
                    (query (gethash (format nil "~a~a" r c)
                                    queries))
                    (value
@@ -135,10 +154,9 @@ table.sudoku {
                          (parse-integer query
                                         :start 0
                                         :end 1
-                                        :radix 10 ; paranoia
+                                        :radix *print-base*
                                         :junk-allowed t)
                          NIL)))
-              ;; there are no single-digit integers greater than 9 in base 10.
               (when (and value
                          (plusp value))
                 (setf (aref string index)
@@ -165,7 +183,7 @@ table.sudoku {
                 "~a~%"
                 (make-html
                  `(html ()
-                        ,*head*
+                        ,(head)
                         (body ()
                               (h1 (:style #"text-align: center") "Solution")
                               (table (:style #"margin-left:auto;margin-right:auto")
@@ -174,24 +192,45 @@ table.sudoku {
                                              ,(puzzle->html puzzle)))
                                      (tr ()
                                          (td ()
-                                             (a (:href #"sudoku.cgi")
+                                             (a (:href ,(quote-string
+                                                         (format
+                                                          nil
+                                                          "sudoku.cgi?n=~a"
+                                                          *n-values*)))
                                                 "Return to puzzle entry"))))))))
         (format t
                 "~a~%"
                 (make-html
                  `(html ()
-                        ,*head*
+                        ,(head)
                         (body ()
                               (p ()
                                  "Error solving puzzle")
-                              (a (:href #"sudoku.cgi")
+                              (a (:href ,(quote-string
+                                          (format
+                                           nil
+                                           "sudoku.cgi?n=~a"
+                                           *n-values*)))
                                  "Return to puzzle entry"))))))))
 
+(defun get-n-values (queries)
+  "Get n-values from GET request and set *n-values* appropriately"
+  ;; handle dimensionality
+  (let* ((get queries)
+         (dim nil))
+    (when (and get (gethash "n" get))
+      (setf dim (read-from-string (safe-string (gethash "n" get))
+                                  nil nil))
+      (unless (find dim (list 4 9 16))
+        (setf dim nil))
+      (when dim
+        (setf *n-values* dim)))))
+
 (defun main ()
-  (let* ((queries
-           (parse-post-query)))
-    (if queries
-        (results-page queries)
+  (let* ((post (parse-post-query)))
+    (get-n-values (or post (parse-get-query)))
+    (if post
+        (results-page post)
         (input-page))))
 
 (when (member :script *features*)
