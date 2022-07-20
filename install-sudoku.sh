@@ -1,6 +1,6 @@
 #!/bin/bash
-ssh -i ~/.ssh/id_rsa_homevid pi@homevid <<EOF
-cd /home/pi/myprogs/LISP/sudoku/ &&
+ssh -i ~/.ssh/id_rsa_raspberrypi ghollisjr@raspberrypi <<EOF
+cd /home/ghollisjr/myprogs/LISP/sudoku/ &&
     make clean &&
     make &&
     sudo make install &&

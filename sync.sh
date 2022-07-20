@@ -1,8 +1,9 @@
 #!/bin/bash
-scp -i ~/.ssh/id_rsa_homevid \
+scp -i ~/.ssh/id_rsa_raspberrypi \
     *.lisp \
+    *.cgi \
     *.asd \
     *.txt \
     Makefile \
-    pi@homevid:/home/pi/myprogs/LISP/sudoku/
+    ghollisjr@raspberrypi:/home/ghollisjr/myprogs/LISP/sudoku/
 ./install-sudoku.sh
