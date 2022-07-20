@@ -113,54 +113,72 @@ table.sudoku {
            (read-sudoku-from-string
             (make-string (* *n-values* *n-values*) :initial-element #\.)))
          (table (puzzle->html puzzle :form-p t)))
-    (format t
-            "~a~%"
-            (make-html
-             `(html ()
-                    ,(head)
-                    (body ()
-                          (h1 (:style #"text-align: center")
-                              "Common Lisp Sudoku Solver")
-                          (form (:method #"POST")
-                                (input (:type #"hidden" :name #"n"
-                                        :value ,(quote-string
-                                                 (princ-to-string *n-values*))))
-                                (table (:style #"margin-left:auto;margin-right:auto")
-                                       (tr ()
-                                           (td ()
-                                               ,table))
-                                       (tr ()
-                                           (td ()
-                                               (input (:type #"submit"
-                                                       :name #"submit"
-                                                       :value #"Solve"))))))))))))
+    (format
+     t
+     "~a~%"
+     (make-html
+      `(html ()
+             ,(head)
+             (body ()
+                   (h1 (:style #"text-align: center")
+                       "Common Lisp Sudoku Solver")
+                   (form (:method #"POST")
+                         (input (:type #"hidden" :name #"n"
+                                 :value ,(quote-string
+                                          (princ-to-string *n-values*))))
+                         (table (:style #"margin-left:auto;margin-right:auto")
+                                (tr ()
+                                    (td ()
+                                        ,table))
+                                (tr ()
+                                    (td ()
+                                        (input (:type #"submit"
+                                                :name #"submit"
+                                                :value #"Solve"))))))
+                   (table (:style #"margin-left:auto;margin-right:auto")
+                          (tr ()
+                              (td ()
+                                  "Puzzle size:")
+                              ,@(let ((result nil))
+                                  (dolist (n (list 4 9 16)
+                                             (nreverse result))
+                                    (let ((link
+                                            (quote-string
+                                             (format nil
+                                                     "sudoku.cgi?n=~a" n))))
+                                      (push `(td ()
+                                                 (a (:href ,link)
+                                                    ,(format nil
+                                                             "~ax~a"
+                                                             n n)))
+                                            result))))))))))))
 
 (defparameter *debug* NIL)
 
 (defun results-page (queries)
   (http-response-header)
-  (let* ((*print-base* (1+ *n-values*))
-         (string (make-string (* *n-values* *n-values*) :initial-element #\.))
+  (let* ((string (make-string (* *n-values* *n-values*) :initial-element #\.))
          puzzle)
     (handler-case
-        (dotimes (r *n-values*)
-          (dotimes (c *n-values*)
-            (let* ((index (+ (* r *n-values*) c))
-                   (query (gethash (format nil "~a~a" r c)
-                                   queries))
-                   (value
-                     (if (and query
-                              (plusp (length query)))
-                         (parse-integer query
-                                        :start 0
-                                        :end 1
-                                        :radix *print-base*
-                                        :junk-allowed t)
-                         NIL)))
-              (when (and value
-                         (plusp value))
-                (setf (aref string index)
-                      (character (format nil "~a" value)))))))
+        (let ((*print-base* (1+ *n-values*)))
+          (dotimes (r *n-values*)
+            (dotimes (c *n-values*)
+              (let* ((index (+ (* r *n-values*) c))
+                     (query (gethash (format nil "~a~a" r c)
+                                     queries))
+                     (value
+                       (if (and query
+                                (plusp (length query)))
+                           (parse-integer query
+                                          :start 0
+                                          :end 1
+                                          :radix *print-base*
+                                          :junk-allowed t)
+                           NIL)))
+                (when (and value
+                           (plusp value))
+                  (setf (aref string index)
+                        (character (format nil "~a" value))))))))
       (error (err) (format t "~a~%" err)))
     ;; debug
     (when *debug*
