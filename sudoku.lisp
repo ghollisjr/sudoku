@@ -169,6 +169,14 @@ returns NIL."
   "Returns completely filled intvec for current *n-values*"
   (1- (ash 1 *n-values*)))
 
+;;; bitvec stuff
+(declaim (inline MAKE-FULL-BITVEC))
+
+(defun make-full-bitvec ()
+  (make-array *n-values*
+              :element-type 'bit
+              :initial-element 1))
+
 ;;; Utility functions
 (defun copy-sudoku-array (array &optional (initial-element 0))
   (let* ((dims (array-dimensions array))
@@ -204,8 +212,8 @@ returns NIL."
       (unless possible
         (setf possible
               (make-array (list *n-values* *n-values*)
-                          :initial-element (make-full-intvec)
-                          :element-type (list 'integer 0 (make-full-intvec))))
+                          :initial-element (make-full-bitvec)
+                          :element-type (list 'integer 0 (make-full-bitvec))))
         (dotimes (i *n-values*)
           (dotimes (j *n-values*)
             (let ((value (aref values i j)))
@@ -226,7 +234,7 @@ returns NIL."
   (with-slots (values possible) s
     (make-instance 'sudoku
                    :values (copy-sudoku-array values)
-                   :possible (copy-sudoku-array possible (make-full-intvec)))))
+                   :possible (copy-sudoku-array possible (make-full-bitvec)))))
 
 ;; debugging function
 (defun copy-sudoku-unit (s i j)
@@ -238,7 +246,7 @@ returns NIL."
                                       :initial-element 0)
                           :possible
                           (make-array (list *n-values* *n-values*)
-                                      :initial-element (make-full-intvec)))))
+                                      :initial-element (make-full-bitvec)))))
     (with-slots (values) result
       (setf (aref values i j)
             (aref (slot-value s 'values) i j))
