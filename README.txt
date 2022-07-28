@@ -19,7 +19,8 @@ solved the puzzle:
 This is my own from-scratch implementation of a Sudoku solver that was
 inspired by Norvig and Dimitri, but with an added CGI web app script
 to create a simple Sudoku solver web page provided you have your
-environment set up with the CGI core already built and installed.
+environment set up with the dependencies (see below) already built and
+installed.
 
 The usage is fairly straightforward:
 
@@ -53,3 +54,21 @@ this case printing
 3 7 5 | 4 8 6 | 2 1 9 
 2 4 9 | 3 1 7 | 6 5 8 
 1 8 6 | 2 9 5 | 4 7 3 
+
+DEPENDENCIES
+
+* cl-ana (quicklisp)
+* sbcl-script (https://github.com/ghollisjr/sbcl-script)
+* scripting (https://github.com/ghollisjr/scripting)
+* cgi (https://github.com/ghollisjr/cgi)
+
+INSTALLATION
+
+For basic library: Just place it somewhere quicklisp knows about and
+load it with (ql:quickload "sudoku")
+
+For CGI app:
+  1. Build & install the core:
+     make && sudo make install
+  2. Place sudoku.cgi somewhere your HTTP server likes cgi
+     binaries/scripts.
