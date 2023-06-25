@@ -1,3 +1,11 @@
+- Fix web app so that 16x16 uses either decimal input or hexadecimal
+  (I lean towards the latter) since at the moment only hexadecimal
+  input works but output is decimal, which makes no sense.
+
+  UPDATE: It was a simple bug in the #'results-page function where
+  *print-base* was bound in an internal block instead of the outer
+  block of the function like what was needed.
+
 + There's no reason Sudoku puzzles have to be made of square blocks.
   They can be made of rectangular blocks arranged in the right way,
   e.g. consider a "6x6" puzzle:

@@ -151,34 +151,36 @@ table.sudoku {
                                                     ,(format nil
                                                              "~ax~a"
                                                              n n)))
-                                            result))))))))))))
+                                            result))))))
+                   (p (:style #"text-align: center") "NOTE: Use hexadecimal input (1-9, A-F) for 16x16 puzzles.")))))))
 
 (defparameter *debug* NIL)
 
 (defun results-page (queries)
   (http-response-header)
-  (let* ((string (make-string (* *n-values* *n-values*) :initial-element #\.))
+  (let* ((*print-base* (1+ *n-values*))
+         (string (make-string (* *n-values* *n-values*) :initial-element #\.))
          puzzle)
     (handler-case
-        (let ((*print-base* (1+ *n-values*)))
-          (dotimes (r *n-values*)
-            (dotimes (c *n-values*)
-              (let* ((index (+ (* r *n-values*) c))
-                     (query (gethash (format nil "~a~a" r c)
-                                     queries))
-                     (value
-                       (if (and query
-                                (plusp (length query)))
-                           (parse-integer query
-                                          :start 0
-                                          :end 1
-                                          :radix *print-base*
-                                          :junk-allowed t)
-                           NIL)))
-                (when (and value
-                           (plusp value))
-                  (setf (aref string index)
-                        (character (format nil "~a" value))))))))
+        (dotimes (r *n-values*)
+          (dotimes (c *n-values*)
+            (let* ((index (+ (* r *n-values*) c))
+                   (query (gethash (let ((*print-base* 10))
+                                     (format nil "~a~a" r c))
+                                   queries))
+                   (value
+                     (if (and query
+                              (plusp (length query)))
+                         (parse-integer query
+                                        :start 0
+                                        :end 1
+                                        :radix *print-base*
+                                        :junk-allowed t)
+                         NIL)))
+              (when (and value
+                         (plusp value))
+                (setf (aref string index)
+                      (character (format nil "~a" value)))))))
       (error (err) (format t "~a~%" err)))
     ;; debug
     (when *debug*
