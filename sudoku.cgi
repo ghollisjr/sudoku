@@ -1,4 +1,5 @@
 #!/usr/bin/env -S sbcl --core /usr/local/lib/sbcl-cores/sudoku.core --script
+;; -*- mode: lisp -*-
 (unless (member :script *features*)
   (ql:quickload '(:cgi :scripting :sudoku)))
 (in-package :cgi)
