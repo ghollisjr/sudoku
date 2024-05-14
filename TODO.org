@@ -1,4 +1,10 @@
 * TODO [1/2]
+- [ ] Rewrite to use hunchentoot and spinneret.  It would still be
+  nice to have a simple front-end that provides a convenient
+  environment for CGI scripts, e.g. simple post/get argument parsing,
+  but on top of that file uploads and other commonly required features
+  should be supported.
+
 - [ ] There's no reason Sudoku puzzles have to be made of square
   blocks.  They can be made of rectangular blocks arranged in the
   right way, e.g. consider a "6x6" puzzle:
